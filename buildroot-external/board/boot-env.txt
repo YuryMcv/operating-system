@@ -1,6 +1,0 @@
-verbosity=1
-bootlogo=false
-extraargs=cma=128M
-overlay_prefix=rk3588
-fdtfile=rockchip/rk3588s-orangepi-5.dtb
-rootdev=UUID=93844c10-5311-42cd-9eeb-05f9d90c8b8a
