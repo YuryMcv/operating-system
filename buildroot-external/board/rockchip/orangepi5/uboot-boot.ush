@@ -1,4 +1,4 @@
-part start ${devtype} ${devnum} hassos-bootstate mmc_env
+part start ${devtype} ${devnum} 6 mmc_env
 ${devtype} dev ${devnum}
 
 setenv loadbootstate " \
