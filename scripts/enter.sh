@@ -6,7 +6,7 @@ BUILDER_GID="$(id -g)"
 CACHE_DIR="${CACHE_DIR:-$HOME/hassos-cache}"
 
 if [ "$BUILDER_UID" -eq "0" ] || [ "$BUILDER_GID" == "0" ]; then
-  echo "ERROR: Please run this script as a regular (non-root) user with sudo privileges."
+  echo "ERROR: Please run this script as a regular (non-root) user."
   exit 1
 fi
 
@@ -18,12 +18,14 @@ if [ ! -f buildroot/Makefile ]; then
   git submodule update --init
 fi
 
-if command -v losetup >/dev/null && [ ! -e /dev/loop0 ]; then
-  # Make sure loop devices are present before starting the container
-  sudo losetup -f > /dev/null
+TTY_OPTS=""
+
+if [ -t 0 ]; then
+  TTY_OPTS="-it"
 fi
 
-docker run -it --rm --privileged \
+docker run --rm --privileged \
+  ${TTY_OPTS} \
   -v "$(pwd):/build" -v "${CACHE_DIR}:/cache" \
   -e BUILDER_UID="${BUILDER_UID}" -e BUILDER_GID="${BUILDER_GID}" \
   hassos:local "${@:-bash}"

@@ -18,6 +18,15 @@ mkfs.ext4 -L "hassos-data" -E lazy_itable_init=0,lazy_journal_init=0 "${data_img
 
 # Mount / init file structs
 mkdir -p "${data_dir}"
+# losetup -f may return a loop device the kernel has just created.
+# Docker doesn't add new devices to the container's /dev, so create the node.
+loopdev=$(sudo losetup -f)
+# Strip the " (lost)" suffix that losetup adds when the node is missing
+loopdev=${loopdev%% *}
+if [ ! -b "${loopdev}" ]; then
+    devnum=$(cat "/sys/block/${loopdev#/dev/}/dev")
+    sudo mknod "${loopdev}" b "${devnum%%:*}" "${devnum#*:}"
+fi
 sudo mount -o loop,discard "${data_img}" "${data_dir}"
 
 trap 'docker rm -f ${container} > /dev/null; sudo umount ${data_dir} || true' ERR EXIT
@@ -42,3 +51,17 @@ curl -fsL -o "${data_dir}/supervisor/apparmor/hassio-supervisor" "${APPARMOR_URL
 # Persist build-time updater channel
 jq -n --arg channel "${channel}" '{"channel": \$channel}' > "${data_dir}/supervisor/updater.json"
 EOF
+
+# Tear down docker and unmount the data partition before shrinking
+docker rm -f "${container}" > /dev/null
+sudo umount "${data_dir}"
+trap - ERR EXIT
+
+# Shrink the filesystem to its minimum size
+e2fsck -f -y "${data_img}"
+resize2fs -M "${data_img}"
+
+# Truncate image file to match the filesystem size
+block_count=$(dumpe2fs -h "${data_img}" 2>/dev/null | awk '/^Block count:/{print $3}')
+block_size=$(dumpe2fs -h "${data_img}" 2>/dev/null | awk '/^Block size:/{print $3}')
+truncate --size="$((block_count * block_size))" "${data_img}"
